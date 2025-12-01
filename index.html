@@ -1,76 +1,108 @@
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Struk Riyadi Cell - OCR</title>
-  <link rel="manifest" href="manifest.json">
-  <script>
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.register('service-worker.js');
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  <style>
-    body { font-family: Arial; margin:10px; }
-    .container { max-width:420px; margin:auto; }
-    header { text-align:center; }
-    img.logo { max-width:200px; }
-    .result, .struk { white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:6px; }
-    .print-preview { width:384px; max-width:100%; border:1px dashed #ccc; padding:10px; margin:auto; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RIYADI CELL – OCR & Generator Struk</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+<style>
+ body { font-family: Arial; padding: 10px; background: #f5f5f5; }
+ .box { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.12); }
+ input, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; }
+ button { background:#e63946; color:white; padding:12px 18px; border:0; border-radius:8px; margin-top:10px; cursor:pointer; }
+ #preview { width:100%; margin-top:10px; border-radius:10px; display:none; }
+ #struk58 { font-family: monospace; white-space: pre; background:white; padding:10px; border-radius:10px; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <img src="logo_riyadi_cell.png" class="logo">
-      <h2>Struk Riyadi Cell</h2>
-    </header>
+<h2><b>RIYADI CELL – OCR, Autofill & Generator Struk</b></h2>
 
-    <input type="file" id="imageInput" accept="image/*" capture="environment">
-    <button id="btnProcess">Proses OCR</button>
+<div class="box">
+ <label><b>Pilih Gambar Struk</b></label><br>
+ <input type="file" id="imageInput" accept="image/*" />
+ <img id="preview" />
+</div>
 
-    <h3>Hasil OCR</h3>
-    <div id="ocrResult" class="result"></div>
+<div class="box">
+ <button onclick="runOCR()">Proses OCR</button>
+ <pre id="ocrResult"></pre>
+</div>
 
-    <h3>Struk Thermal (58mm)</h3>
-    <div class="print-preview">
-      <div id="strukOutput" class="struk">Struk akan muncul disini</div>
-    </div>
-  </div>
+<div class="box">
+ <h3>Data Struk (Autofill dari OCR)</h3>
+ <label>Nama Produk</label>
+ <input id="produk" />
+
+ <label>Nomor Tujuan</label>
+ <input id="nomor" />
+
+ <label>Harga</label>
+ <input id="harga" />
+
+ <label>Waktu Transaksi</label>
+ <input id="waktu" />
+
+ <button onclick="generateStruk()">Buat Struk 58mm</button>
+</div>
+
+<div class="box">
+ <h3>Struk 58mm (Preview)</h3>
+ <div id="struk58"></div>
+ <button onclick="downloadPDF()">Download PDF</button>
+</div>
 
 <script>
-document.getElementById('btnProcess').addEventListener('click', async ()=>{
-  let f = document.getElementById('imageInput').files[0];
-  if(!f) return alert('Pilih gambar dulu');
+const input = document.getElementById('imageInput');
+const preview = document.getElementById('preview');
 
-  document.getElementById('ocrResult').textContent = "Memproses OCR...";
-  let res = await Tesseract.recognize(f, 'ind');
-  let text = res.data.text || "";
-  document.getElementById('ocrResult').textContent = text;
-
-  let nominal = (text.match(/Rp\s?[0-9\.,]+/)||[""])[0];
-  let waktu = (text.match(/\d{1,2}\s\w{3}\s\d{4},\s\d{2}:\d{2}/)||[""])[0];
-  let pengirim = (text.match(/Dari\s*\n([^\n]+)/i)||["",""])[1];
-  let penerima = (text.match(/Ke\s*\n([^\n]+)/i)||["",""])[1];
-  let noTrans = (text.match(/2025\d+/)||[""])[0];
-
-  let lines = [];
-  lines.push("================================");
-  lines.push("        STRUK RIYADI_CELL");
-  lines.push("================================");
-  lines.push("Waktu : "+waktu);
-  lines.push("Nominal : "+nominal);
-  lines.push("Dari : "+pengirim);
-  lines.push("Ke : "+penerima);
-  lines.push("No.Trans : "+noTrans);
-  lines.push("================================");
-  lines.push("Terima kasih");
-  lines.push("================================");
-
-  document.getElementById("strukOutput").textContent = lines.join("\n");
+input.addEventListener('change', () => {
+ const file = input.files[0];
+ if (file) {
+   preview.src = URL.createObjectURL(file);
+   preview.style.display = "block";
+ }
 });
+
+function runOCR() {
+ const file = input.files[0];
+ if (!file) return alert('Pilih gambar dulu');
+
+ Tesseract.recognize(file,'ind').then(r => {
+   const text = r.data.text;
+   document.getElementById('ocrResult').textContent = text;
+
+   // Autofill sederhana
+   document.getElementById('produk').value = (text.match(/(DATA|PULSA|KUOTA).*/i) || [''])[0];
+   document.getElementById('nomor').value = (text.match(/08[0-9]{8,12}/) || [''])[0];
+   document.getElementById('harga').value = (text.match(/Rp.?\s?[0-9\.]+/) || [''])[0];
+   document.getElementById('waktu').value = (text.match(/\d{2}-\d{2}-\d{4}.*/) || [''])[0];
+ });
+}
+
+function generateStruk() {
+ const p = document.getElementById('produk').value;
+ const n = document.getElementById('nomor').value;
+ const h = document.getElementById('harga').value;
+ const w = document.getElementById('waktu').value;
+
+ const format = `RIYADI CELL\n-----------------------------\nProduk : ${p}\nNomor  : ${n}\nHarga  : ${h}\nWaktu  : ${w}\n-----------------------------\nTerima kasih :)`;
+
+ document.getElementById('struk58').textContent = format;
+}
+
+function downloadPDF() {
+ const { jsPDF } = window.jspdf || {};
+ if (!jsPDF) {
+   alert('jsPDF belum di-load');
+   return;
+ }
+ const pdf = new jsPDF({unit:'mm', format:[58,100]});
+ pdf.setFont('courier');
+ pdf.setFontSize(8);
+ pdf.text(document.getElementById('struk58').textContent, 2, 5);
+ pdf.save('struk_riyadi.pdf');
+}
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 </html>
