@@ -179,7 +179,7 @@ function generateStruk() {
   const aInt = parseInt(a) || 0;
   const total = hInt + aInt;
 
-  const format = `RIYADI CELL
+  const format = `
 
 ========= STRUK TRANSFER =========
 
@@ -217,7 +217,7 @@ Kami juga melayani Top Up Dana,Gopay,
   if (strukPreviewEl) {
     // Tampilkan logo di preview, lalu tambahkan teks struk di bawahnya
     // Karena logo sudah ada di HTML, kita hanya perlu menambahkan teks struknya
-    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:100px; height:auto display:block; margin:0 auto 5px;" />${format}`;
+    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:100px; height:auto display:block; margin:5px;" />${format}`;
   } else {
     console.error('Element dengan id struk58Preview tidak ditemukan!');
   }
@@ -233,7 +233,7 @@ function downloadPDF() {
  
  const pdf = new jsPDF({unit:'mm', format:[58,100]});
  pdf.setFont('courier');
- pdf.setFontSize(6);
+ pdf.setFontSize(8);
  
  // Ambil konten dari elemen teks struk
  const strukText = document.getElementById('struk58').textContent; 
