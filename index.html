@@ -52,10 +52,10 @@
  <label>Nama Penerima</label>
  <input id="nama_penerima" />
 
- <button onclick="generateStruk"()">Buat Struk 58mm</button>
-</div>
-<h3>Struk 58mm</h3>
-<pre id="struk58"></pre>
+ <div class="box">
+ <button onclick="generateStruk()">Buat Struk 58mm</button>
+ <pre id="struk58"></pre>
+ </div>
  
 <div class="box">
  <h3>Struk 58mm (Preview)</h3>
@@ -64,6 +64,94 @@
 </div>
 
 <script>
+async function runOCR() {
+  const file = document.getElementById('input').files[0];
+  if (!file) return alert('Pilih gambar dulu');
+
+  try {
+    const res = await Tesseract.recognize(file, 'ind+eng');
+    let text = res.data.text || '';
+    console.log("OCR Text:", text);
+    document.getElementById('ocrResult').textContent = text;
+
+    // Bersihkan newline
+    text = text.replace(/\n/g, ' ').replace(/\r/g, ' ').trim();
+
+    // Ambil Waktu
+    let waktu = '';
+    if (text.includes('Waktu Transaksi')) {
+      const t = text.split('Waktu Transaksi')[1].trim().split(' ');
+      if (t.length >= 4) waktu = `${t[0]} ${t[1]} ${t[2]}, ${t[3]}`;
+    }
+    document.getElementById('waktu').value = waktu;
+
+    // No Transaksi
+    let noTrans = '';
+    if (text.includes('No. Transaksi')) {
+      noTrans = text.split('No. Transaksi')[1].trim().split(' ')[0];
+    }
+    document.getElementById('notrans').value = noTrans;
+
+    // Bank
+    let bank = '';
+    if (text.includes('BANK')) {
+      bank = text.split('BANK')[1].trim().split(' ')[0];
+    }
+    document.getElementById('bank').value = bank;
+
+    // Rekening Penerima
+    let rek = '';
+    if (text.includes('#')) {
+      rek = text.split('#')[1].trim().split(' ')[0];
+    }
+    document.getElementById('rek_penerima').value = rek;
+
+    // Nominal
+    let nominalInt = 0;
+    if (text.includes('Rp')) {
+      const match = text.split('Rp')[1].match(/[\d.]+/);
+      if (match) nominalInt = parseInt(match[0].replace(/\./g, ''));
+    }
+    document.getElementById('harga').value = nominalInt;
+
+    // Admin
+    let admin = 0;
+    if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
+    else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
+    else if (nominalInt > 600000 && nominalInt <= 1000000) admin = 10000;
+    document.getElementById('admin').value = admin;
+
+    // Nama Penerima
+    let penerima = '';
+    if (text.includes('Ke ')) {
+      let parts = text.split('Ke ')[1].trim();
+      let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+      namaClean = namaClean
+        .toLowerCase()
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+      namaClean = namaClean
+        .split(' ')
+        .filter(w => !stopWords.includes(w.toLowerCase()))
+        .join(' ')
+        .trim();
+
+      penerima = namaClean;
+    }
+    document.getElementById('nama_penerima').value = penerima;
+
+    // Generate struk otomatis
+    generateStruk();
+
+  } catch (error) {
+    console.error("OCR gagal:", error);
+    alert('Terjadi kesalahan saat memproses OCR');
+  }
+}
+
 function generateStruk() {
   const w = document.getElementById('waktu')?.value || '';
   const nt = document.getElementById('notrans')?.value || '';
