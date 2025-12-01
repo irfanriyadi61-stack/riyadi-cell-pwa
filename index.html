@@ -149,7 +149,7 @@ async function runOCR() {
         .map(w => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
 
-      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin','metode','Rp','bca','jumlah','No','transaksi','bifast','butuh','bantuan'];
+      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin','metode','rp','bca','jumlah','no','transaksi','bifast','butuh','bantuan','waktu','nov','des','jan','feb',];
       namaClean = namaClean
         .split(' ')
         .filter(w => !stopWords.includes(w.toLowerCase()))
@@ -196,8 +196,14 @@ Nama Penerima: ${n}
 Nominal      : Rp ${hInt.toLocaleString('id-ID')}
 Biaya Admin  : Rp ${aInt.toLocaleString('id-ID')}
 Total        : Rp ${total.toLocaleString('id-ID')}
+
 ==================================
-Terima kasih telah bertransaksi`;
+  Terima kasih telah bertransaksi
+Kami juga melayani Top Up Dana,Gopay,
+       OVO,Shopeepay,Linkaja
+       
+  Simpan struk ini sebagai bukti
+     pembayaran yang sah..!!`;
 
   const strukEl = document.getElementById('struk58');
   const strukPreviewEl = document.getElementById('struk58Preview');
@@ -211,7 +217,7 @@ Terima kasih telah bertransaksi`;
   if (strukPreviewEl) {
     // Tampilkan logo di preview, lalu tambahkan teks struk di bawahnya
     // Karena logo sudah ada di HTML, kita hanya perlu menambahkan teks struknya
-    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:100px; display:block; margin:0 auto 5px;" />${format}`;
+    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:100px; height:auto display:block; margin:0 auto 5px;" />${format}`;
   } else {
     console.error('Element dengan id struk58Preview tidak ditemukan!');
   }
@@ -227,7 +233,7 @@ function downloadPDF() {
  
  const pdf = new jsPDF({unit:'mm', format:[58,100]});
  pdf.setFont('courier');
- pdf.setFontSize(10);
+ pdf.setFontSize(6);
  
  // Ambil konten dari elemen teks struk
  const strukText = document.getElementById('struk58').textContent; 
