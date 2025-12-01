@@ -64,9 +64,22 @@
 </div>
 
 <script>
+ 
 async function runOCR() {
-  const file = document.getElementById('input').files[0];
+  const file = input.files[0];
   if (!file) return alert('Pilih gambar dulu');
+
+  try {
+    // Jalankan OCR
+    const res = await Tesseract.recognize(file, 'ind+eng'); // lebih akurat
+    let text = res.data.text || '';
+    console.log("OCR Text:", text);
+
+    // Tampilkan hasil mentah di halaman
+    document.getElementById('ocrResult').textContent = text;
+
+    // Bersihkan newline
+    text = text.replace(/\n/g, ' ').replace(/\r/g, ' ').trim();
 
     // Ambil Waktu
     let waktu = '';
