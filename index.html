@@ -68,15 +68,6 @@ async function runOCR() {
   const file = document.getElementById('input').files[0];
   if (!file) return alert('Pilih gambar dulu');
 
-  try {
-    const res = await Tesseract.recognize(file, 'ind+eng');
-    let text = res.data.text || '';
-    console.log("OCR Text:", text);
-    document.getElementById('ocrResult').textContent = text;
-
-    // Bersihkan newline
-    text = text.replace(/\n/g, ' ').replace(/\r/g, ' ').trim();
-
     // Ambil Waktu
     let waktu = '';
     if (text.includes('Waktu Transaksi')) {
@@ -138,13 +129,9 @@ async function runOCR() {
         .filter(w => !stopWords.includes(w.toLowerCase()))
         .join(' ')
         .trim();
-
-      penerima = namaClean;
+       penerima = namaClean;
     }
     document.getElementById('nama_penerima').value = penerima;
-
-    // Generate struk otomatis
-    generateStruk();
 
   } catch (error) {
     console.error("OCR gagal:", error);
