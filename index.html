@@ -71,12 +71,11 @@
 <script>
  
 async function runOCR() {
-  // ✅ PERBAIKAN UTAMA: Ambil elemen input file berdasarkan ID
   const input = document.getElementById('imageInput'); 
   const file = input.files[0];
   if (!file) return alert('Pilih gambar dulu');
 
-  // Opsional: Tampilkan preview gambar
+  // Tampilkan preview gambar
   const preview = document.getElementById('preview');
   preview.src = URL.createObjectURL(file);
   preview.style.display = 'block';
@@ -143,14 +142,15 @@ async function runOCR() {
     let penerima = '';
     if (text.includes('Ke ')) {
       let parts = text.split('Ke ')[1].trim();
-      let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+      let namaClean = parts.replace(/[^A-Za-z\s]/g, '').trim();
+      let stopIndex = teksUntukNama.indexOf('Total');
       namaClean = namaClean
         .toLowerCase()
         .split(' ')
         .map(w => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
 
-      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin','metode','Rp','bca','jumlah','No','transaksi','bifast','butuh','bantuan'];
       namaClean = namaClean
         .split(' ')
         .filter(w => !stopWords.includes(w.toLowerCase()))
@@ -181,14 +181,19 @@ function generateStruk() {
   const total = hInt + aInt;
 
   const format = `RIYADI CELL
+
 ========= STRUK TRANSFER =========
+
+
 Waktu        : ${w}
 No. Transaksi: ${nt}
 ----------------------------------
+
 BANK TUJUAN  : ${b}
 Rek Penerima : ${r}
 Nama Penerima: ${n}
 ----------------------------------
+
 Nominal      : Rp ${hInt.toLocaleString('id-ID')}
 Biaya Admin  : Rp ${aInt.toLocaleString('id-ID')}
 Total        : Rp ${total.toLocaleString('id-ID')}
@@ -207,7 +212,7 @@ Terima kasih telah bertransaksi`;
   if (strukPreviewEl) {
     // Tampilkan logo di preview, lalu tambahkan teks struk di bawahnya
     // Karena logo sudah ada di HTML, kita hanya perlu menambahkan teks struknya
-    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:60px; display:block; margin:0 auto 5px;" />${format}`;
+    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:100px; display:block; margin:0 auto 5px;" />${format}`;
   } else {
     console.error('Element dengan id struk58Preview tidak ditemukan!');
   }
@@ -223,7 +228,7 @@ function downloadPDF() {
  
  const pdf = new jsPDF({unit:'mm', format:[58,100]});
  pdf.setFont('courier');
- pdf.setFontSize(8);
+ pdf.setFontSize(10);
  
  // Ambil konten dari elemen teks struk
  const strukText = document.getElementById('struk58').textContent; 
