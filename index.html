@@ -30,17 +30,23 @@
 
 <div class="box">
  <h3>Data Struk (Autofill dari OCR)</h3>
- <label>Nama Produk</label>
- <input id="produk" />
-
- <label>Nomor Tujuan</label>
- <input id="nomor" />
-
- <label>Harga</label>
- <input id="harga" />
-
- <label>Waktu Transaksi</label>
+ <label>waktu transaksi</label>
  <input id="waktu" />
+
+ <label>No. referensi</label>
+ <input id="no referensi" />
+
+ <label>No.rekening tujuan</label>
+ <input id="nomor rekening tujuan" />
+
+ <label>nama penerima</label>
+ <input id="nama penerima" />
+
+ <label>No. referensi</label>
+ <input id="no referensi" />
+
+  <label>biaya admin</label>
+ <input id="5000" />
 
  <button onclick="generateStruk()">Buat Struk 58mm</button>
 </div>
@@ -63,21 +69,121 @@ input.addEventListener('change', () => {
  }
 });
 
-function runOCR() {
- const file = input.files[0];
- if (!file) return alert('Pilih gambar dulu');
+async function runOCR() {
+  const file = input.files[0];
+  if (!file) return alert('Pilih gambar dulu');
 
- Tesseract.recognize(file,'ind').then(r => {
-   const text = r.data.text;
-   document.getElementById('ocrResult').textContent = text;
+  document.getElementById('ocrResult').textContent = "Memproses OCR...";
 
-   // Autofill sederhana
-   document.getElementById('produk').value = (text.match(/(DATA|PULSA|KUOTA).*/i) || [''])[0];
-   document.getElementById('nomor').value = (text.match(/08[0-9]{8,12}/) || [''])[0];
-   document.getElementById('harga').value = (text.match(/Rp.?\s?[0-9\.]+/) || [''])[0];
-   document.getElementById('waktu').value = (text.match(/\d{2}-\d{2}-\d{4}.*/) || [''])[0];
- });
+  // jalankan Tesseract dan ambil hasil + words (untuk confidence jika perlu)
+  const res = await Tesseract.recognize(file, 'ind', { logger: m => {} });
+  const textRaw = res.data.text || '';
+  const words = res.data.words || [];
+  document.getElementById('ocrResult').textContent = textRaw;
+
+  // Normalisasi: ubah beberapa karakter umum yang sering salah
+  let text = textRaw.replace(/\u00A0/g,' ')   // non-breaking space
+                    .replace(/[\t]+/g,' ')
+                    .replace(/[O]{1,}/g, 'O')   // optional - keep O
+                    .replace(/[^ -~\n]/g, '')   // hapus karakter non-ascii
+                    .replace(/\r/g,'\n');
+
+  // Bikin array baris (trim tiap baris)
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length>0);
+
+  // Util: cari baris yang cocok pattern (banyak pola fallback)
+  const findLine = (patterns) => {
+    for (const p of patterns) {
+      for (const l of lines) {
+        if (p instanceof RegExp) {
+          if (p.test(l)) return l;
+        } else {
+          if (l.toLowerCase().includes(p.toLowerCase())) return l;
+        }
+      }
+    }
+    return '';
+  };
+
+  // Cari nominal (beberapa pola)
+  const nominalLine = findLine([/Rp\s?[0-9\.\,]+/i, /Jumlah\s*[:\-]?\s*Rp/i, /\bRp\b/]);
+  let nominal = '';
+  if (nominalLine) {
+    const m = nominalLine.match(/Rp\s?([0-9\.,]+)/i) || nominalLine.match(/([0-9\.,]+)\s?Rp/i);
+    if (m) nominal = 'Rp ' + m[1].replace(/\.(?=\d{3})/g, '.').replace(/,/g, '.'); // standardize
+  } else {
+    // fallback: cari angka besar terakhir di teks
+    const allNums = text.match(/[0-9]{3,}[0-9\.,]*/g) || [];
+    if (allNums.length) nominal = 'Rp ' + allNums[allNums.length-1].replace(/[^0-9]/g,'');
+  }
+
+  // Cari waktu / tanggal
+  let waktu = findLine([/\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/, /\d{1,2}\s\w+\s\d{4},\s*\d{2}:\d{2}/, /Waktu Transaksi/i]) || '';
+  if (waktu) {
+    const m = waktu.match(/\d{1,2}\s\w+\s\d{4},\s*\d{2}:\d{2}/) || waktu.match(/\d{2}[-\/]\d{2}[-\/]\d{2,4}\s*\d{2}:\d{2}/);
+    if (m) waktu = m[0];
+  }
+
+  // Cari no transaksi
+  let noTrans = findLine([/No\.?\s*Transaksi/i, /No\s*Trans/i, /Transaction\s*No/i]) || '';
+  if (noTrans) {
+    const m = noTrans.match(/([0-9]{8,})/);
+    if (m) noTrans = m[1];
+    else noTrans = noTrans.replace(/[^\d]/g,'');
+  } else {
+    // fallback cari pola panjang mulai 202[0-9]...
+    const m2 = text.match(/20\d{8,}/);
+    noTrans = m2 ? m2[0] : '';
+  }
+
+  // Cari nomor tujuan (rekening / hp)
+  let nomor = findLine([/No\.?\s?Rek/i, /Rek\.?/i, /No\.?\s?Tujuan/i, /08[0-9]{8,12}/]) || '';
+  if (nomor) {
+    const m = nomor.match(/(08[0-9]{8,12})/) || nomor.match(/([0-9\*]{4,})/);
+    nomor = m ? m[0].replace(/\s/g,'') : nomor;
+  } else {
+    // cari pertama yang mirip rekening/hp
+    const m3 = text.match(/08[0-9]{8,12}/) || text.match(/\*{2,}[0-9]{2,4}/);
+    nomor = m3 ? m3[0] : '';
+  }
+
+  // Cari nama (heuristik: baris setelah kata 'Nama' atau 'Atas Nama' / baris yang mengandung huruf kapital)
+  let nama = '';
+  const namaLine = findLine(['Atas Nama', 'Nama Penerima', 'Nama', /Atas Nama/i]);
+  if (namaLine) {
+    const mm = namaLine.match(/Atas Nama[:\s-]*([A-Za-z\s\.]+)/i) || namaLine.match(/Nama[:\s-]*([A-Za-z\s\.]+)/i);
+    nama = mm ? mm[1].trim() : '';
+  }
+  if (!nama) {
+    // fallback: cari baris yang tampak seperti nama (lebih dari satu kata, huruf)
+    const candidate = lines.find(l => /^[A-Za-z][A-Za-z\s\.]{3,}$/.test(l) && l.split(' ').length<=5 && l.length<40);
+    if (candidate) nama = candidate;
+  }
+
+  // Tampilkan hasil auto-fill ke input form
+  if (nominal) document.getElementById('harga').value = nominal;
+  if (nomor) document.getElementById('nomor').value = nomor;
+  if (waktu) document.getElementById('waktu').value = waktu;
+  if (noTrans) {
+    const el = document.getElementById('notrans') || null;
+    if (el) el.value = noTrans;
+  }
+  if (nama) {
+    const eln = document.getElementById('nama_penerima') || null;
+    if (eln) eln.value = nama;
+  }
+
+  // Confidence check (average)
+  let avgConf = 0;
+  if (words && words.length) {
+    avgConf = words.reduce((s,w)=>s+(w.confidence||0),0)/words.length;
+  }
+  if (avgConf < 70) {
+    // beri peringatan tapi tetap isi
+    alert('Peringatan: akurasi OCR rendah (confidence ~' + Math.round(avgConf) + '). Mohon periksa hasil autofill dan koreksi jika perlu.');
+  }
 }
+
 
 function generateStruk() {
  const p = document.getElementById('produk').value;
