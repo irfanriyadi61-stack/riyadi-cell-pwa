@@ -1,0 +1,76 @@
+
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Struk Riyadi Cell - OCR</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: Arial; margin:10px; }
+    .container { max-width:420px; margin:auto; }
+    header { text-align:center; }
+    img.logo { max-width:200px; }
+    .result, .struk { white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:6px; }
+    .print-preview { width:384px; max-width:100%; border:1px dashed #ccc; padding:10px; margin:auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="logo_riyadi_cell.png" class="logo">
+      <h2>Struk Riyadi Cell</h2>
+    </header>
+
+    <input type="file" id="imageInput" accept="image/*" capture="environment">
+    <button id="btnProcess">Proses OCR</button>
+
+    <h3>Hasil OCR</h3>
+    <div id="ocrResult" class="result"></div>
+
+    <h3>Struk Thermal (58mm)</h3>
+    <div class="print-preview">
+      <div id="strukOutput" class="struk">Struk akan muncul disini</div>
+    </div>
+  </div>
+
+<script>
+document.getElementById('btnProcess').addEventListener('click', async ()=>{
+  let f = document.getElementById('imageInput').files[0];
+  if(!f) return alert('Pilih gambar dulu');
+
+  document.getElementById('ocrResult').textContent = "Memproses OCR...";
+  let res = await Tesseract.recognize(f, 'ind');
+  let text = res.data.text || "";
+  document.getElementById('ocrResult').textContent = text;
+
+  let nominal = (text.match(/Rp\s?[0-9\.,]+/)||[""])[0];
+  let waktu = (text.match(/\d{1,2}\s\w{3}\s\d{4},\s\d{2}:\d{2}/)||[""])[0];
+  let pengirim = (text.match(/Dari\s*\n([^\n]+)/i)||["",""])[1];
+  let penerima = (text.match(/Ke\s*\n([^\n]+)/i)||["",""])[1];
+  let noTrans = (text.match(/2025\d+/)||[""])[0];
+
+  let lines = [];
+  lines.push("================================");
+  lines.push("        STRUK RIYADI_CELL");
+  lines.push("================================");
+  lines.push("Waktu : "+waktu);
+  lines.push("Nominal : "+nominal);
+  lines.push("Dari : "+pengirim);
+  lines.push("Ke : "+penerima);
+  lines.push("No.Trans : "+noTrans);
+  lines.push("================================");
+  lines.push("Terima kasih");
+  lines.push("================================");
+
+  document.getElementById("strukOutput").textContent = lines.join("\n");
+});
+</script>
+</body>
+</html>
