@@ -166,6 +166,362 @@ async function runOCR() {
   }
 }
 
+
+
+ChatGPT
+Anda bilang:
+async function runOCR() {
+  const file = input.files[0];
+  if (!file) return alert('Pilih gambar dulu');
+
+  const res = await Tesseract.recognize(file, 'ind');
+  let text = res.data.text || '';
+  document.getElementById('ocrResult').textContent = text;
+
+  text = text.split('
+').join(' ').split('
+').join(' ');
+
+  let waktu = '';
+  if (text.indexOf('Waktu Transaksi') !== -1) {
+    const t = text.split('Waktu Transaksi')[1].trim().split(' ');
+    if (t.length >= 4) waktu = t[0] + ' ' + t[1] + ' ' + t[2] + ', ' + t[3];
+  }
+  document.getElementById('waktu').value = waktu;
+
+  let noTrans = '';
+  if (text.indexOf('No. Transaksi') !== -1) {
+    noTrans = text.split('No. Transaksi')[1].trim().split(' ')[0];
+  }
+  document.getElementById('notrans').value = noTrans;
+
+  let bank = '';
+  if (text.indexOf('BANK') !== -1) {
+    bank = text.split('BANK')[1].trim().split(' ')[0];
+  }
+  document.getElementById('bank').value = bank;
+
+  let rek = '';
+  if (text.indexOf('#') !== -1) {
+    rek = text.split('#')[1].trim().split(' ')[0];
+  }
+  document.getElementById('rek_penerima').value = rek;
+
+  let nominal = '';
+  if (text.indexOf('Rp') !== -1) {
+    nominal = text.split('Rp')[1].trim().split(' ')[0];
+  }
+  let nominalInt = 0;
+  if (nominal) nominalInt = parseInt(nominal.split('.').join(''));
+  document.getElementById('harga').value = nominalInt;
+
+  let admin = 0;
+  if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
+  else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
+  else if (nominalInt > 600000 && nominalInt <= 1000000) admin = 10000;
+  document.getElementById('admin').value = admin;
+
+  let penerima = '';
+  if (text.indexOf('Ke ') !== -1) {
+    const parts = text.split('Ke ')[1].trim();
+    let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+    namaClean = namaClean.toLowerCase().split(' ').map(x => x.charAt(0).toUpperCase() + x.slice(1)).join(' ');
+    // hapus kata umum
+    const stop = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+    namaClean = namaClean.split(' ').filter(w => !stop.includes(w.toLowerCase())).join(' ').trim();
+    penerima = namaClean;
+  }
+  document.getElementById('nama_penerima').value = penerima').value = penerima.trim();
+}
+
+Apakah ada yang salah dengan OCR ini??
+Fungsi OCR tidak berfungsi..
+ChatGPT bilang:
+Ah, saya lihat beberapa hal yang kemungkinan menyebabkan fungsi OCR-mu tidak berjalan dengan benar. Mari kita bahas secara detail.
+
+1. Kesalahan sintaksis
+Di bagian terakhir ini:
+
+document.getElementById('nama_penerima').value = penerima').value = penerima.trim();
+Ada tanda kutip lebih ' setelah penerima.
+
+Penugasan value ditulis dua kali.
+
+Perbaikan:
+
+document.getElementById('nama_penerima').value = penerima.trim();
+Ini bisa langsung memperbaiki error JS yang menyebabkan fungsi berhenti.
+
+2. Masalah pemrosesan teks OCR
+Kamu menggunakan:
+
+text = text.split('
+').join(' ').split('
+').join(' ');
+Sepertinya maksudmu untuk mengganti newline (\n) dengan spasi.
+
+Namun ' ' yang kamu tulis bukan escape sequence. Harusnya:
+
+text = text.split('\n').join(' ');
+Atau lebih ringkas:
+
+text = text.replace(/\n/g, ' ');
+Jika ini salah, seluruh parsing string bisa gagal.
+
+3. Parsing nominal
+let nominal = '';
+if (text.indexOf('Rp') !== -1) {
+  nominal = text.split('Rp')[1].trim().split(' ')[0];
+}
+let nominalInt = 0;
+if (nominal) nominalInt = parseInt(nominal.split('.').join(''));
+parseInt tidak akan membaca angka yang menggunakan koma sebagai desimal atau format ribuan dengan titik jika ada karakter lain.
+
+Jika nominal di struk seperti Rp 1.250.000, ini sudah benar (split('.').join('')). Tapi jika ada spasi atau karakter lain, bisa gagal.
+
+4. Library Tesseract.js
+Pastikan kamu sudah memuat Tesseract.js dengan bahasa yang benar, misalnya:
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+Dan 'ind' tersedia. Bisa juga pakai 'ind+eng' agar lebih akurat.
+
+5. Tips debugging
+Tambahkan console log untuk melihat output OCR sebelum parsing:
+
+console.log(res.data.text);
+Ini akan membantumu memastikan teks sudah terbaca dengan benar.
+
+✅ Perbaikan minimal pada kode-mu:
+
+text = text.replace(/\n/g, ' '); // ganti newline
+
+// bagian nama penerima
+let penerima = '';
+if (text.indexOf('Ke ') !== -1) {
+  const parts = text.split('Ke ')[1].trim();
+  let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+  namaClean = namaClean.toLowerCase().split(' ').map(x => x.charAt(0).toUpperCase() + x.slice(1)).join(' ');
+  const stop = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+  namaClean = namaClean.split(' ').filter(w => !stop.includes(w.toLowerCase())).join(' ').trim();
+  penerima = namaClean;
+}
+document.getElementById('nama_penerima').value = penerima.trim();
+Kalau mau, aku bisa tuliskan versi full kode OCR yang sudah diperbaiki dan lebih tahan error, lengkap dengan handling teks, nominal, admin, dan nama penerima.
+
+Apakah mau aku buatkan versi lengkapnya?
+
+Anda bilang:
+Saya sudah punya koding lengkap nya..
+Apakah kamu bisa membantu saya mengoreksi kesalahan nya di mana??
+ChatGPT bilang:
+Oke, mari kita teliti kode yang kamu kirimkan baris demi baris untuk menemukan kesalahan yang membuat OCR tidak berjalan. Saya sudah melihat beberapa hal awal, tapi kita bahas secara menyeluruh.
+
+1. Kesalahan sintaksis
+Di bagian terakhir ini:
+
+document.getElementById('nama_penerima').value = penerima').value = penerima.trim();
+Masalah:
+
+Ada tanda ' yang salah (penerima')
+
+Menulis .value = ... dua kali
+
+Ini akan membuat JavaScript error dan menghentikan eksekusi fungsi.
+
+Perbaikan:
+
+document.getElementById('nama_penerima').value = penerima.trim();
+2. Penanganan newline
+Kamu menulis:
+
+text = text.split('
+').join(' ').split('
+').join(' ');
+Masalah:
+
+' ' bukan escape sequence. Harusnya \n untuk newline.
+
+Kalau salah, teks yang didapat dari OCR tidak akan diproses dengan benar.
+
+Perbaikan:
+
+text = text.replace(/\n/g, ' ');
+Ini akan mengganti semua newline dengan spasi, lebih rapi.
+
+3. Parsing nominal (Rp)
+let nominal = '';
+if (text.indexOf('Rp') !== -1) {
+  nominal = text.split('Rp')[1].trim().split(' ')[0];
+}
+let nominalInt = 0;
+if (nominal) nominalInt = parseInt(nominal.split('.').join(''));
+Potensi masalah:
+
+Jika nominal di struk ada format Rp 1.250.000,00 atau ada spasi tambahan, parseInt bisa gagal.
+
+split(' ')[0] hanya mengambil kata pertama, bisa jadi 1.250.000,00 terpotong jika ada spasi.
+
+Solusi lebih aman:
+
+let nominalInt = 0;
+if (text.includes('Rp')) {
+  let nominalStr = text.split('Rp')[1].match(/[\d.]+/); // ambil hanya angka dan titik
+  if (nominalStr) nominalInt = parseInt(nominalStr[0].replace(/\./g, ''));
+}
+4. Parsing nama penerima
+let penerima = '';
+if (text.indexOf('Ke ') !== -1) {
+  const parts = text.split('Ke ')[1].trim();
+  let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+  namaClean = namaClean.toLowerCase().split(' ').map(x => x.charAt(0).toUpperCase() + x.slice(1)).join(' ');
+  const stop = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+  namaClean = namaClean.split(' ').filter(w => !stop.includes(w.toLowerCase())).join(' ').trim();
+  penerima = namaClean;
+}
+Catatan:
+
+Parsing ini menghapus karakter non-alfabet, bisa menyebabkan nama asing atau nama dengan simbol hilang.
+
+Mungkin perlu disesuaikan jika OCR kadang membaca angka atau tanda dalam nama.
+
+5. Library Tesseract
+Pastikan kamu memanggil Tesseract dengan benar:
+
+const res = await Tesseract.recognize(file, 'ind');
+'ind' harus ada datanya. Kadang lebih akurat pakai 'ind+eng'.
+
+Pastikan library Tesseract.js sudah diload di HTML.
+
+6. Debugging
+Tambahkan log sebelum parsing:
+
+console.log("OCR Text:", res.data.text);
+Ini akan membantu memastikan teks terbaca.
+
+✅ Kesimpulan kesalahan utama
+Kesalahan sintaksis pada nama_penerima. Ini pasti bikin fungsi berhenti.
+
+Penggantian newline salah ('\n' harus dipakai).
+
+Parsing nominal bisa gagal jika format struk tidak sesuai asumsi (split(' ')[0] dan parseInt).
+
+Kalau kamu mau, aku bisa langsung buatkan versi kode lengkap yang sudah diperbaiki semua sehingga OCR berjalan lancar.
+
+Apakah mau aku buatkan versi itu?
+
+Anda bilang:
+Ya
+ChatGPT bilang:
+Oke! Saya akan tuliskan versi lengkap fungsi runOCR yang sudah diperbaiki, lebih aman, dan lebih tahan error. Saya sertakan juga beberapa debug log agar mudah dicek jika ada masalah pada OCR.
+
+async function runOCR() {
+  const file = input.files[0];
+  if (!file) return alert('Pilih gambar dulu');
+
+  try {
+    // Jalankan OCR
+    const res = await Tesseract.recognize(file, 'ind+eng'); // lebih akurat
+    let text = res.data.text || '';
+    console.log("OCR Text:", text);
+
+    // Tampilkan hasil mentah di halaman
+    document.getElementById('ocrResult').textContent = text;
+
+    // Bersihkan newline
+    text = text.replace(/\n/g, ' ').replace(/\r/g, ' ').trim();
+
+    // ====== Ambil Waktu Transaksi ======
+    let waktu = '';
+    if (text.includes('Waktu Transaksi')) {
+      const t = text.split('Waktu Transaksi')[1].trim().split(' ');
+      if (t.length >= 4) waktu = `${t[0]} ${t[1]} ${t[2]}, ${t[3]}`;
+    }
+    document.getElementById('waktu').value = waktu;
+
+    // ====== Ambil No. Transaksi ======
+    let noTrans = '';
+    if (text.includes('No. Transaksi')) {
+      noTrans = text.split('No. Transaksi')[1].trim().split(' ')[0];
+    }
+    document.getElementById('notrans').value = noTrans;
+
+    // ====== Ambil Bank ======
+    let bank = '';
+    if (text.includes('BANK')) {
+      bank = text.split('BANK')[1].trim().split(' ')[0];
+    }
+    document.getElementById('bank').value = bank;
+
+    // ====== Ambil Rekening Penerima ======
+    let rek = '';
+    if (text.includes('#')) {
+      rek = text.split('#')[1].trim().split(' ')[0];
+    }
+    document.getElementById('rek_penerima').value = rek;
+
+    // ====== Ambil Nominal ======
+    let nominalInt = 0;
+    if (text.includes('Rp')) {
+      const match = text.split('Rp')[1].match(/[\d.]+/); // ambil angka dan titik
+      if (match) nominalInt = parseInt(match[0].replace(/\./g, ''));
+    }
+    document.getElementById('harga').value = nominalInt;
+
+    // ====== Hitung Admin ======
+    let admin = 0;
+    if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
+    else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
+    else if (nominalInt > 600000 && nominalInt <= 1000000) admin = 10000;
+    document.getElementById('admin').value = admin;
+
+    // ====== Ambil Nama Penerima ======
+    let penerima = '';
+    if (text.includes('Ke ')) {
+      let parts = text.split('Ke ')[1].trim();
+      let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+      namaClean = namaClean
+        .toLowerCase()
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      // Hapus kata umum
+      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+      namaClean = namaClean
+        .split(' ')
+        .filter(w => !stopWords.includes(w.toLowerCase()))
+        .join(' ')
+        .trim();
+
+      penerima = namaClean;
+    }
+    document.getElementById('nama_penerima').value = penerima;
+
+    console.log("Waktu:", waktu, "NoTrans:", noTrans, "Bank:", bank, "Rek:", rek, "Nominal:", nominalInt, "Admin:", admin, "Penerima:", penerima);
+
+  } catch (error) {
+    console.error("OCR gagal:", error);
+    alert('Terjadi kesalahan saat memproses OCR');
+  }
+}
+✅ Perbaikan utama:
+Syntaks diperbaiki (nama_penerima).
+
+Newline diganti dengan benar (\n).
+
+Parsing nominal lebih aman, pakai regex ambil angka dan titik saja.
+
+Tesseract menggunakan bahasa 'ind+eng' agar lebih akurat.
+
+Tambahkan try-catch untuk menangani error tanpa menghentikan halaman.
+
+Tambahkan console.log untuk debugging.
+
+Kalau mau, aku bisa juga buatkan versi lebih robust yang bisa membaca nominal, nama, dan waktu meskipun OCR membaca sedikit salah (misal typo atau spasi tambahan).
+
+Apakah mau aku buatkan versi itu juga?
+
+Anda bilang:
 function generateStruk() {
  const w = document.getElementById('waktu').value;
  const nt = document.getElementById('notrans').value;
@@ -175,7 +531,7 @@ function generateStruk() {
  const a = document.getElementById('admin').value;
  const n = document.getElementById('nama_penerima').value;
 
- const format = `RIYADI CELL
+ const format = RIYADI CELL
 ========= STRUK TRANSFER =========
 Waktu        : ${w}
 No. Transaksi: ${nt}
@@ -188,9 +544,254 @@ Nominal      : Rp ${h}
 Biaya Admin  : Rp ${a}
 Total        : Rp ${parseInt(h)+parseInt(a)}
 ==================================
-Terima kasih telah bertransaksi`;
+Terima kasih telah bertransaksi;
 
  document.getElementById('struk58').textContent = format;
+}
+
+Tolong koreksi koding ini..
+Generate struk nya tidak berfungsi 
+ChatGPT bilang:
+Oke, mari kita analisis fungsi generateStruk() yang kamu kirimkan. Dari pengalaman, ada beberapa hal yang biasanya menyebabkan struk tidak muncul atau tidak berfungsi.
+
+1. Cek HTML
+Pastikan ada elemen dengan id struk58 di HTML-mu, misalnya:
+
+<pre id="struk58"></pre>
+Jika menggunakan <div> biasa, newline (\n) tidak akan tampil seperti yang diinginkan, karena HTML mengabaikan whitespace.
+
+Solusi: gunakan <pre> atau white-space: pre di CSS.
+
+Contoh:
+
+<div id="struk58" style="white-space: pre;"></div>
+2. Pastikan semua input ada
+Fungsi mengambil nilai dari input:
+
+const w = document.getElementById('waktu').value;
+Jika salah satu id tidak ada atau input belum diisi, bisa jadi struk kosong atau undefined.
+
+Pastikan semua id (waktu, notrans, bank, rek_penerima, harga, admin, nama_penerima) ada di HTML.
+
+3. Parsing angka
+Total : Rp ${parseInt(h)+parseInt(a)}
+Jika h atau a kosong string '', parseInt('') akan menghasilkan NaN.
+
+Lebih aman:
+
+const hInt = parseInt(h) || 0;
+const aInt = parseInt(a) || 0;
+const total = hInt + aInt;
+4. Kode lengkap yang diperbaiki
+Berikut versi yang sudah diperbaiki agar lebih aman:
+
+function generateStruk() {
+  const w = document.getElementById('waktu')?.value || '';
+  const nt = document.getElementById('notrans')?.value || '';
+  const b = document.getElementById('bank')?.value || '';
+  const r = document.getElementById('rek_penerima')?.value || '';
+  const h = document.getElementById('harga')?.value || '0';
+  const a = document.getElementById('admin')?.value || '0';
+  const n = document.getElementById('nama_penerima')?.value || '';
+
+  const hInt = parseInt(h) || 0;
+  const aInt = parseInt(a) || 0;
+  const total = hInt + aInt;
+
+  const format = `RIYADI CELL
+========= STRUK TRANSFER =========
+Waktu        : ${w}
+No. Transaksi: ${nt}
+----------------------------------
+BANK TUJUAN  : ${b}
+Rek Penerima : ${r}
+Nama Penerima: ${n}
+----------------------------------
+Nominal      : Rp ${hInt.toLocaleString('id-ID')}
+Biaya Admin  : Rp ${aInt.toLocaleString('id-ID')}
+Total        : Rp ${total.toLocaleString('id-ID')}
+==================================
+Terima kasih telah bertransaksi`;
+
+  const strukEl = document.getElementById('struk58');
+  if (strukEl) {
+    strukEl.textContent = format;
+  } else {
+    console.error('Element dengan id struk58 tidak ditemukan!');
+  }
+}
+✅ Perbaikan utama:
+Gunakan optional chaining (?.) untuk menghindari error jika elemen tidak ada.
+
+Default value untuk input kosong.
+
+Parsing angka lebih aman dengan parseInt + fallback 0.
+
+Tambahkan toLocaleString('id-ID') agar format ribuan pakai titik (.) sesuai standar Indonesia.
+
+Cek keberadaan elemen struk58 sebelum menulis.
+
+Kalau mau, aku bisa gabungkan fungsi OCR + generate struk jadi satu alur yang langsung membaca gambar, isi form, dan langsung menghasilkan struk.
+
+Apakah mau aku buatkan versi itu?
+
+Anda bilang:
+Ya saya mau
+ChatGPT bilang:
+Oke! Saya akan buatkan versi lengkap alur OCR + generate struk. Jadi tinggal pilih gambar, otomatis OCR dijalankan, form diisi, dan struk langsung muncul. Saya buat versi lebih aman dan rapi.
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>OCR & Generate Struk</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+<style>
+  #struk58 { white-space: pre; font-family: monospace; border: 1px solid #ccc; padding: 10px; }
+</style>
+</head>
+<body>
+
+<h2>Upload Gambar Struk</h2>
+<input type="file" id="input" accept="image/*">
+<button onclick="runOCR()">Proses OCR</button>
+
+<h3>Form Hasil OCR</h3>
+<label>Waktu: <input id="waktu"></label><br>
+<label>No. Transaksi: <input id="notrans"></label><br>
+<label>Bank: <input id="bank"></label><br>
+<label>Rek Penerima: <input id="rek_penerima"></label><br>
+<label>Nama Penerima: <input id="nama_penerima"></label><br>
+<label>Nominal: <input id="harga"></label><br>
+<label>Admin: <input id="admin"></label><br>
+<button onclick="generateStruk()">Generate Struk</button>
+
+<h3>Hasil OCR Mentah</h3>
+<pre id="ocrResult"></pre>
+
+<h3>Struk 58mm</h3>
+<pre id="struk58"></pre>
+
+<script>
+async function runOCR() {
+  const file = document.getElementById('input').files[0];
+  if (!file) return alert('Pilih gambar dulu');
+
+  try {
+    const res = await Tesseract.recognize(file, 'ind+eng');
+    let text = res.data.text || '';
+    console.log("OCR Text:", text);
+    document.getElementById('ocrResult').textContent = text;
+
+    // Bersihkan newline
+    text = text.replace(/\n/g, ' ').replace(/\r/g, ' ').trim();
+
+    // Ambil Waktu
+    let waktu = '';
+    if (text.includes('Waktu Transaksi')) {
+      const t = text.split('Waktu Transaksi')[1].trim().split(' ');
+      if (t.length >= 4) waktu = `${t[0]} ${t[1]} ${t[2]}, ${t[3]}`;
+    }
+    document.getElementById('waktu').value = waktu;
+
+    // No Transaksi
+    let noTrans = '';
+    if (text.includes('No. Transaksi')) {
+      noTrans = text.split('No. Transaksi')[1].trim().split(' ')[0];
+    }
+    document.getElementById('notrans').value = noTrans;
+
+    // Bank
+    let bank = '';
+    if (text.includes('BANK')) {
+      bank = text.split('BANK')[1].trim().split(' ')[0];
+    }
+    document.getElementById('bank').value = bank;
+
+    // Rekening Penerima
+    let rek = '';
+    if (text.includes('#')) {
+      rek = text.split('#')[1].trim().split(' ')[0];
+    }
+    document.getElementById('rek_penerima').value = rek;
+
+    // Nominal
+    let nominalInt = 0;
+    if (text.includes('Rp')) {
+      const match = text.split('Rp')[1].match(/[\d.]+/);
+      if (match) nominalInt = parseInt(match[0].replace(/\./g, ''));
+    }
+    document.getElementById('harga').value = nominalInt;
+
+    // Admin
+    let admin = 0;
+    if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
+    else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
+    else if (nominalInt > 600000 && nominalInt <= 1000000) admin = 10000;
+    document.getElementById('admin').value = admin;
+
+    // Nama Penerima
+    let penerima = '';
+    if (text.includes('Ke ')) {
+      let parts = text.split('Ke ')[1].trim();
+      let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+      namaClean = namaClean
+        .toLowerCase()
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      const stopWords = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+      namaClean = namaClean
+        .split(' ')
+        .filter(w => !stopWords.includes(w.toLowerCase()))
+        .join(' ')
+        .trim();
+
+      penerima = namaClean;
+    }
+    document.getElementById('nama_penerima').value = penerima;
+
+    // Generate struk otomatis
+    generateStruk();
+
+  } catch (error) {
+    console.error("OCR gagal:", error);
+    alert('Terjadi kesalahan saat memproses OCR');
+  }
+}
+
+function generateStruk() {
+  const w = document.getElementById('waktu')?.value || '';
+  const nt = document.getElementById('notrans')?.value || '';
+  const b = document.getElementById('bank')?.value || '';
+  const r = document.getElementById('rek_penerima')?.value || '';
+  const h = document.getElementById('harga')?.value || '0';
+  const a = document.getElementById('admin')?.value || '0';
+  const n = document.getElementById('nama_penerima')?.value || '';
+
+  const hInt = parseInt(h) || 0;
+  const aInt = parseInt(a) || 0;
+  const total = hInt + aInt;
+
+  const format = `RIYADI CELL
+========= STRUK TRANSFER =========
+Waktu        : ${w}
+No. Transaksi: ${nt}
+----------------------------------
+BANK TUJUAN  : ${b}
+Rek Penerima : ${r}
+Nama Penerima: ${n}
+----------------------------------
+Nominal      : Rp ${hInt.toLocaleString('id-ID')}
+Biaya Admin  : Rp ${aInt.toLocaleString('id-ID')}
+Total        : Rp ${total.toLocaleString('id-ID')}
+==================================
+Terima kasih telah bertransaksi`;
+
+  const strukEl = document.getElementById('struk58');
+  if (strukEl) strukEl.textContent = format;
+  else console.error('Element dengan id struk58 tidak ditemukan!');
 }
 
 function downloadPDF() {
