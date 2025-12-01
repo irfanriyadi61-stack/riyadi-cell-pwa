@@ -15,6 +15,7 @@
 </style>
 </head>
 <body>
+<div style="text-align:center; margin-bottom:10px;"><img id="logoToko" src="logo.png" style="width:80px; height:auto; border-radius:10px;" /></div>
 <h2><b>RIYADI CELL – OCR, Autofill & Generator Struk</b></h2>
 
 <div class="box">
@@ -30,30 +31,33 @@
 
 <div class="box">
  <h3>Data Struk (Autofill dari OCR)</h3>
- <label>waktu transaksi</label>
+ <label>Waktu Transaksi</label>
  <input id="waktu" />
 
- <label>No. referensi</label>
- <input id="no referensi" />
+ <label>No. Transaksi</label>
+ <input id="notrans" />
 
- <label>No.rekening tujuan</label>
- <input id="nomor rekening tujuan" />
+ <label>Bank Tujuan</label>
+ <input id="bank" />
 
- <label>nama penerima</label>
- <input id="nama penerima" />
+ <label>No Rekening Penerima</label>
+ <input id="rek_penerima" />
 
- <label>No. referensi</label>
- <input id="no referensi" />
+ <label>Nominal Transfer</label>
+ <input id="harga" />
 
-  <label>biaya admin</label>
- <input id="5000" />
+ <label>Biaya Admin</label>
+ <input id="admin" />
 
- <button onclick="generateStruk()">Buat Struk 58mm</button>
+ <label>Nama Penerima</label>
+ <input id="nama_penerima" />
+
+ <button onclick="generateStruk"()">Buat Struk 58mm</button>
 </div>
 
 <div class="box">
  <h3>Struk 58mm (Preview)</h3>
- <div id="struk58"></div>
+ <div id="struk58"><img id="logoPrint" src="logo.png" style="width:60px; display:block; margin:0 auto 5px;" /></div>
  <button onclick="downloadPDF()">Download PDF</button>
 </div>
 
@@ -73,125 +77,89 @@ async function runOCR() {
   const file = input.files[0];
   if (!file) return alert('Pilih gambar dulu');
 
-  document.getElementById('ocrResult').textContent = "Memproses OCR...";
+  const res = await Tesseract.recognize(file, 'ind');
+  let text = res.data.text || '';
+  document.getElementById('ocrResult').textContent = text;
 
-  // jalankan Tesseract dan ambil hasil + words (untuk confidence jika perlu)
-  const res = await Tesseract.recognize(file, 'ind', { logger: m => {} });
-  const textRaw = res.data.text || '';
-  const words = res.data.words || [];
-  document.getElementById('ocrResult').textContent = textRaw;
+  text = text.split('
+').join(' ').split('
+').join(' ');
 
-  // Normalisasi: ubah beberapa karakter umum yang sering salah
-  let text = textRaw.replace(/\u00A0/g,' ')   // non-breaking space
-                    .replace(/[\t]+/g,' ')
-                    .replace(/[O]{1,}/g, 'O')   // optional - keep O
-                    .replace(/[^ -~\n]/g, '')   // hapus karakter non-ascii
-                    .replace(/\r/g,'\n');
+  let waktu = '';
+  if (text.indexOf('Waktu Transaksi') !== -1) {
+    const t = text.split('Waktu Transaksi')[1].trim().split(' ');
+    if (t.length >= 4) waktu = t[0] + ' ' + t[1] + ' ' + t[2] + ', ' + t[3];
+  }
+  document.getElementById('waktu').value = waktu;
 
-  // Bikin array baris (trim tiap baris)
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length>0);
+  let noTrans = '';
+  if (text.indexOf('No. Transaksi') !== -1) {
+    noTrans = text.split('No. Transaksi')[1].trim().split(' ')[0];
+  }
+  document.getElementById('notrans').value = noTrans;
 
-  // Util: cari baris yang cocok pattern (banyak pola fallback)
-  const findLine = (patterns) => {
-    for (const p of patterns) {
-      for (const l of lines) {
-        if (p instanceof RegExp) {
-          if (p.test(l)) return l;
-        } else {
-          if (l.toLowerCase().includes(p.toLowerCase())) return l;
-        }
-      }
-    }
-    return '';
-  };
+  let bank = '';
+  if (text.indexOf('BANK') !== -1) {
+    bank = text.split('BANK')[1].trim().split(' ')[0];
+  }
+  document.getElementById('bank').value = bank;
 
-  // Cari nominal (beberapa pola)
-  const nominalLine = findLine([/Rp\s?[0-9\.\,]+/i, /Jumlah\s*[:\-]?\s*Rp/i, /\bRp\b/]);
+  let rek = '';
+  if (text.indexOf('#') !== -1) {
+    rek = text.split('#')[1].trim().split(' ')[0];
+  }
+  document.getElementById('rek_penerima').value = rek;
+
   let nominal = '';
-  if (nominalLine) {
-    const m = nominalLine.match(/Rp\s?([0-9\.,]+)/i) || nominalLine.match(/([0-9\.,]+)\s?Rp/i);
-    if (m) nominal = 'Rp ' + m[1].replace(/\.(?=\d{3})/g, '.').replace(/,/g, '.'); // standardize
-  } else {
-    // fallback: cari angka besar terakhir di teks
-    const allNums = text.match(/[0-9]{3,}[0-9\.,]*/g) || [];
-    if (allNums.length) nominal = 'Rp ' + allNums[allNums.length-1].replace(/[^0-9]/g,'');
+  if (text.indexOf('Rp') !== -1) {
+    nominal = text.split('Rp')[1].trim().split(' ')[0];
   }
+  let nominalInt = 0;
+  if (nominal) nominalInt = parseInt(nominal.split('.').join(''));
+  document.getElementById('harga').value = nominalInt;
 
-  // Cari waktu / tanggal
-  let waktu = findLine([/\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/, /\d{1,2}\s\w+\s\d{4},\s*\d{2}:\d{2}/, /Waktu Transaksi/i]) || '';
-  if (waktu) {
-    const m = waktu.match(/\d{1,2}\s\w+\s\d{4},\s*\d{2}:\d{2}/) || waktu.match(/\d{2}[-\/]\d{2}[-\/]\d{2,4}\s*\d{2}:\d{2}/);
-    if (m) waktu = m[0];
-  }
+  let admin = 0;
+  if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
+  else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
+  else if (nominalInt > 600000 && nominalInt <= 1000000) admin = 10000;
+  document.getElementById('admin').value = admin;
 
-  // Cari no transaksi
-  let noTrans = findLine([/No\.?\s*Transaksi/i, /No\s*Trans/i, /Transaction\s*No/i]) || '';
-  if (noTrans) {
-    const m = noTrans.match(/([0-9]{8,})/);
-    if (m) noTrans = m[1];
-    else noTrans = noTrans.replace(/[^\d]/g,'');
-  } else {
-    // fallback cari pola panjang mulai 202[0-9]...
-    const m2 = text.match(/20\d{8,}/);
-    noTrans = m2 ? m2[0] : '';
+  let penerima = '';
+  if (text.indexOf('Ke ') !== -1) {
+    const parts = text.split('Ke ')[1].trim();
+    let namaClean = parts.replace(/[^A-Za-z ]+/g, '').trim();
+    namaClean = namaClean.toLowerCase().split(' ').map(x => x.charAt(0).toUpperCase() + x.slice(1)).join(' ');
+    // hapus kata umum
+    const stop = ['transfer','bank','seabank','fast','bi','penerima','via','ke','dari','admin'];
+    namaClean = namaClean.split(' ').filter(w => !stop.includes(w.toLowerCase())).join(' ').trim();
+    penerima = namaClean;
   }
-
-  // Cari nomor tujuan (rekening / hp)
-  let nomor = findLine([/No\.?\s?Rek/i, /Rek\.?/i, /No\.?\s?Tujuan/i, /08[0-9]{8,12}/]) || '';
-  if (nomor) {
-    const m = nomor.match(/(08[0-9]{8,12})/) || nomor.match(/([0-9\*]{4,})/);
-    nomor = m ? m[0].replace(/\s/g,'') : nomor;
-  } else {
-    // cari pertama yang mirip rekening/hp
-    const m3 = text.match(/08[0-9]{8,12}/) || text.match(/\*{2,}[0-9]{2,4}/);
-    nomor = m3 ? m3[0] : '';
-  }
-
-  // Cari nama (heuristik: baris setelah kata 'Nama' atau 'Atas Nama' / baris yang mengandung huruf kapital)
-  let nama = '';
-  const namaLine = findLine(['Atas Nama', 'Nama Penerima', 'Nama', /Atas Nama/i]);
-  if (namaLine) {
-    const mm = namaLine.match(/Atas Nama[:\s-]*([A-Za-z\s\.]+)/i) || namaLine.match(/Nama[:\s-]*([A-Za-z\s\.]+)/i);
-    nama = mm ? mm[1].trim() : '';
-  }
-  if (!nama) {
-    // fallback: cari baris yang tampak seperti nama (lebih dari satu kata, huruf)
-    const candidate = lines.find(l => /^[A-Za-z][A-Za-z\s\.]{3,}$/.test(l) && l.split(' ').length<=5 && l.length<40);
-    if (candidate) nama = candidate;
-  }
-
-  // Tampilkan hasil auto-fill ke input form
-  if (nominal) document.getElementById('harga').value = nominal;
-  if (nomor) document.getElementById('nomor').value = nomor;
-  if (waktu) document.getElementById('waktu').value = waktu;
-  if (noTrans) {
-    const el = document.getElementById('notrans') || null;
-    if (el) el.value = noTrans;
-  }
-  if (nama) {
-    const eln = document.getElementById('nama_penerima') || null;
-    if (eln) eln.value = nama;
-  }
-
-  // Confidence check (average)
-  let avgConf = 0;
-  if (words && words.length) {
-    avgConf = words.reduce((s,w)=>s+(w.confidence||0),0)/words.length;
-  }
-  if (avgConf < 70) {
-    // beri peringatan tapi tetap isi
-    alert('Peringatan: akurasi OCR rendah (confidence ~' + Math.round(avgConf) + '). Mohon periksa hasil autofill dan koreksi jika perlu.');
-  }
+  document.getElementById('nama_penerima').value = penerima').value = penerima.trim();
 }
 
-
 function generateStruk() {
- const p = document.getElementById('produk').value;
- const n = document.getElementById('nomor').value;
- const h = document.getElementById('harga').value;
  const w = document.getElementById('waktu').value;
+ const nt = document.getElementById('notrans').value;
+ const b = document.getElementById('bank').value;
+ const r = document.getElementById('rek_penerima').value;
+ const h = document.getElementById('harga').value;
+ const a = document.getElementById('admin').value;
+ const n = document.getElementById('nama_penerima').value;
 
- const format = `RIYADI CELL\n-----------------------------\nProduk : ${p}\nNomor  : ${n}\nHarga  : ${h}\nWaktu  : ${w}\n-----------------------------\nTerima kasih :)`;
+ const format = `RIYADI CELL
+========= STRUK TRANSFER =========
+Waktu        : ${w}
+No. Transaksi: ${nt}
+----------------------------------
+BANK TUJUAN  : ${b}
+Rek Penerima : ${r}
+Nama Penerima: ${n}
+----------------------------------
+Nominal      : Rp ${h}
+Biaya Admin  : Rp ${a}
+Total        : Rp ${parseInt(h)+parseInt(a)}
+==================================
+Terima kasih telah bertransaksi`;
 
  document.getElementById('struk58').textContent = format;
 }
@@ -205,7 +173,15 @@ function downloadPDF() {
  const pdf = new jsPDF({unit:'mm', format:[58,100]});
  pdf.setFont('courier');
  pdf.setFontSize(8);
- pdf.text(document.getElementById('struk58').textContent, 2, 5);
+ // Tambah logo ke PDF
+  const img = document.getElementById('logoPrint');
+  if (img && img.src) {
+    try {
+      pdf.addImage(img, 'PNG', 20, 2, 18, 18); // posisi tengah
+    } catch(e) {}
+  }
+
+  pdf.text(document.getElementById('struk58').textContent, 2, 5);
  pdf.save('struk_riyadi.pdf');
 }
 </script>
