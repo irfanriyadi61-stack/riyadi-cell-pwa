@@ -11,7 +11,10 @@
  input, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; }
  button { background:#e63946; color:white; padding:12px 18px; border:0; border-radius:8px; margin-top:10px; cursor:pointer; }
  #preview { width:100%; margin-top:10px; border-radius:10px; display:none; }
+ /* Hanya struk 58mm yang diisi teks */
  #struk58 { font-family: monospace; white-space: pre; background:white; padding:10px; border-radius:10px; }
+ /* Kontainer preview yang berisi logo */
+ #struk58Preview { font-family: monospace; white-space: pre; background:white; padding:10px; border-radius:10px; }
 </style>
 </head>
 <body>
@@ -51,7 +54,7 @@
 
  <label>Nama Penerima</label>
  <input id="nama_penerima" />
-
+ </div> 
  <div class="box">
  <button onclick="generateStruk()">Buat Struk 58mm</button>
  <pre id="struk58"></pre>
@@ -59,18 +62,28 @@
  
 <div class="box">
  <h3>Struk 58mm (Preview)</h3>
- <div id="struk58" style="white-space: pre;"><img id="logoPrint" src="logo_riyadi_cell.png" style="width:60px; display:block; margin:0 auto 5px;" /></div>
+ <div id="struk58Preview" style="white-space: pre;">
+    <img id="logoPrint" src="logo_riyadi_cell.png" style="width:60px; display:block; margin:0 auto 5px;" />
+ </div>
  <button onclick="downloadPDF()">Download PDF</button>
 </div>
 
 <script>
  
 async function runOCR() {
+  // ✅ PERBAIKAN UTAMA: Ambil elemen input file berdasarkan ID
+  const input = document.getElementById('imageInput'); 
   const file = input.files[0];
   if (!file) return alert('Pilih gambar dulu');
 
+  // Opsional: Tampilkan preview gambar
+  const preview = document.getElementById('preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+
   try {
     // Jalankan OCR
+    document.getElementById('ocrResult').textContent = "Sedang memproses OCR... Tunggu sebentar.";
     const res = await Tesseract.recognize(file, 'ind+eng'); // lebih akurat
     let text = res.data.text || '';
     console.log("OCR Text:", text);
@@ -113,12 +126,13 @@ async function runOCR() {
     // Nominal
     let nominalInt = 0;
     if (text.includes('Rp')) {
-      const match = text.split('Rp')[1].match(/[\d.]+/);
+      // Menangkap angka setelah 'Rp' yang mungkin memiliki titik sebagai pemisah ribuan
+      const match = text.split('Rp')[1].match(/[\d\.]+/); 
       if (match) nominalInt = parseInt(match[0].replace(/\./g, ''));
     }
     document.getElementById('harga').value = nominalInt;
 
-    // Admin
+    // Admin (Logika biaya admin Anda)
     let admin = 0;
     if (nominalInt >= 10000 && nominalInt <= 300000) admin = 5000;
     else if (nominalInt > 300000 && nominalInt <= 600000) admin = 7000;
@@ -148,6 +162,7 @@ async function runOCR() {
 
   } catch (error) {
     console.error("OCR gagal:", error);
+    document.getElementById('ocrResult').textContent = 'OCR gagal. Cek konsol atau coba gambar lain.';
     alert('Terjadi kesalahan saat memproses OCR');
   }
 }
@@ -181,28 +196,56 @@ Total        : Rp ${total.toLocaleString('id-ID')}
 Terima kasih telah bertransaksi`;
 
   const strukEl = document.getElementById('struk58');
-  if (strukEl) strukEl.textContent = format;
-  else console.error('Element dengan id struk58 tidak ditemukan!');
+  const strukPreviewEl = document.getElementById('struk58Preview');
+  
+  if (strukEl) {
+    strukEl.textContent = format; // Untuk konten yang akan di-PDF
+  } else {
+    console.error('Element dengan id struk58 tidak ditemukan!');
+  }
+  
+  if (strukPreviewEl) {
+    // Tampilkan logo di preview, lalu tambahkan teks struk di bawahnya
+    // Karena logo sudah ada di HTML, kita hanya perlu menambahkan teks struknya
+    strukPreviewEl.innerHTML = `<img id="logoPrint" src="logo_riyadi_cell.png" style="width:60px; display:block; margin:0 auto 5px;" />${format}`;
+  } else {
+    console.error('Element dengan id struk58Preview tidak ditemukan!');
+  }
 }
 
 function downloadPDF() {
+ // Pastikan jspdf sudah di-load
  const { jsPDF } = window.jspdf || {};
  if (!jsPDF) {
-   alert('jsPDF belum di-load');
+   alert('jsPDF belum di-load. Pastikan koneksi internet Anda stabil.');
    return;
  }
+ 
  const pdf = new jsPDF({unit:'mm', format:[58,100]});
  pdf.setFont('courier');
  pdf.setFontSize(8);
+ 
+ // Ambil konten dari elemen teks struk
+ const strukText = document.getElementById('struk58').textContent; 
+ 
  // Tambah logo ke PDF
   const img = document.getElementById('logoPrint');
   if (img && img.src) {
     try {
-      pdf.addImage(img, 'PNG', 20, 2, 18, 18); // posisi tengah
-    } catch(e) {}
+      // Tambahkan gambar, atur posisi agar ditengah
+      pdf.addImage(img, 'PNG', 20, 2, 18, 18);
+      // Tambahkan teks struk setelah logo (misalnya mulai dari y=22)
+      pdf.text(strukText, 2, 22); 
+    } catch(e) {
+      console.error("Gagal menambahkan gambar ke PDF:", e);
+      // Jika gagal, tetap tampilkan teks struk
+      pdf.text(strukText, 2, 5);
+    }
+  } else {
+      // Jika logo tidak ada, mulai teks dari atas
+      pdf.text(strukText, 2, 5);
   }
 
-  pdf.text(document.getElementById('struk58').textContent, 2, 5);
  pdf.save('struk_riyadi.pdf');
 }
 </script>
