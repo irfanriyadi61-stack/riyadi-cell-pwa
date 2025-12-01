@@ -118,7 +118,7 @@ async function runOCR() {
     // Rekening Penerima
     let rek = '';
     if (text.includes(': ')) {
-      rek = text.split(': p')[1].trim().split(' ')[0];
+      rek = text.split(': ')[1].trim().split(' ')[0];
     }
     document.getElementById('rek_penerima').value = rek;
 
@@ -140,8 +140,8 @@ async function runOCR() {
 
     // Nama Penerima
     let penerima = '';
-    if (text.includes('Ke')) {
-      let parts = text.split('Ke')[1].trim();
+    if (text.includes('Ke ')) {
+      let parts = text.split('Ke ')[1].trim();
       let namaClean = parts.replace(/[^A-Za-z\s]/g, '').trim();
       namaClean = namaClean
         .toLowerCase()
