@@ -143,7 +143,7 @@ async function runOCR() {
     if (text.includes('Ke ')) {
       let parts = text.split('Ke ')[1].trim();
       let namaClean = parts.replace(/[^A-Za-z\s]/g, '').trim();
-      let stopIndex = teksUntukNama.indexOf('Total');
+      stopIndex = teksUntukNama.indexOf('Total');
       namaClean = namaClean
         .toLowerCase()
         .split(' ')
